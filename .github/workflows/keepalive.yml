@@ -24,7 +24,7 @@ jobs:
         run: |
           for i in 1 2 3; do
             code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 \
-              https://REPLACE-WITH-YOUR-RESIDENTIAL-ADDON.onrender.com/healthz || true)
+              https://yt-addon.onrender.com/healthz || true)
             echo "attempt $i -> HTTP $code"
             [ "$code" = "200" ] && exit 0
             sleep 20
