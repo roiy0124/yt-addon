@@ -1,0 +1,33 @@
+name: keepalive
+
+# Render's free tier spins the instance down after ~15 min idle; the next
+# request then eats a ~30-60s cold start (and the app may time out). Pinging
+# the lightweight /healthz every ~12 min keeps it warm. /healthz with no
+# ?deep does NOT touch loader.to, so this is rate-limit-safe.
+#
+# Note: GitHub disables scheduled workflows after 60 days with no repo
+# activity — push anything to re-enable. Can also run manually.
+
+on:
+  schedule:
+    - cron: "*/12 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping /healthz
+        # NOTE: after you create this addon's OWN Render service, replace the
+        # URL below with its real onrender.com host (it is a different service
+        # from the free addon). Until then this workflow harmlessly fails.
+        run: |
+          for i in 1 2 3; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 \
+              https://REPLACE-WITH-YOUR-RESIDENTIAL-ADDON.onrender.com/healthz || true)
+            echo "attempt $i -> HTTP $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 20
+          done
+          echo "healthz did not return 200 after retries" >&2
+          exit 1
