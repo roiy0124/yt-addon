@@ -1,6 +1,6 @@
 {
   "name": "torrentio-music-addon-residential",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "YouTube music addon for Meyousic — yt-search + loader.to, residential-proxy egress (RESIDENTIAL_PROXY_URL). Separate from the free WARP addon. Israel-tuned.",
   "main": "api/index.js",
   "type": "module",

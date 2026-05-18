@@ -51,7 +51,7 @@ app.use((req, res, next) => {
 });
 
 const PROVIDER_ID = "torrentio-music-res";
-const VERSION = "2.0.0";
+const VERSION = "2.1.0";
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
@@ -283,8 +283,8 @@ async function probeAudio(url) {
 
 async function loaderResolve(videoId) {
   if (inflight.has(videoId)) return inflight.get(videoId);
-  const job = (async () => {
-    const yt = `https://www.youtube.com/watch?v=${videoId}`;
+  const yt = `https://www.youtube.com/watch?v=${videoId}`;
+  const attempt = async () => {
     const a = await (
       await ldrApi(
         `https://loader.to/ajax/download.php?format=mp3&url=${encodeURIComponent(yt)}`
@@ -318,6 +318,22 @@ async function loaderResolve(videoId) {
       await sleep(2500);
     }
     throw new Error("loader.to: link never served audio");
+  };
+  // The first loader.to job often fails transiently (no-job-id / rate
+  // limit). Retry the whole job a few times server-side with backoff so a
+  // transient miss self-heals before the client ever sees an error.
+  const job = (async () => {
+    let lastErr;
+    for (let n = 1; n <= 3; n++) {
+      try {
+        return await attempt();
+      } catch (e) {
+        lastErr = e;
+        console.warn(`[loader] ${videoId} attempt ${n} failed: ${e.message}`);
+        if (n < 3) await sleep(2500 * n);
+      }
+    }
+    throw lastErr || new Error("loader.to: failed after retries");
   })();
   inflight.set(videoId, job);
   job.finally(() => inflight.delete(videoId));
@@ -369,7 +385,9 @@ app.get("/audio/:videoId", async (req, res) => {
     Readable.fromWeb(up.body).pipe(res);
   } catch (err) {
     console.error(`[audio] ${videoId} failed in ${Date.now() - t0}ms:`, err.message || err);
-    cacheSet(`neg:${videoId}`, true, 45 * 1000);
+    // Short negative cache: enough to stop a hammering retry storm, but not
+    // so long it blocks the user's deliberate retry of a transient miss.
+    cacheSet(`neg:${videoId}`, true, 8 * 1000);
     // Residential proxy rotates IPs on its own (provider-side pool), so no
     // app-side rotation needed; just fail this song and let the next retry.
     if (!res.headersSent) res.status(502).end();
