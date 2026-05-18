@@ -34,10 +34,13 @@ const RESIDENTIAL_PROXY_URL = process.env.RESIDENTIAL_PROXY_URL || "";
 const resProxy = RESIDENTIAL_PROXY_URL
   ? new ProxyAgent(RESIDENTIAL_PROXY_URL)
   : null;
-// Cost lever: route only the tiny loader.to JSON API calls through paid
-// residential (~cents/mo); serve the multi-MB audio bytes direct unless
-// PROXY_AUDIO=1 (set it if the CDN byte-fetch is independently flagged).
-const PROXY_AUDIO = process.env.PROXY_AUDIO === "1";
+// Route the savenow-CDN audio bytes through residential too (DEFAULT ON).
+// Reason: loader.to API via residential works, but the CDN byte-fetch from
+// Render's datacenter IP is independently flagged for some videos -> /audio
+// 502 -> "Couldn't prepare". Full IP-consistent flow fixes that. Cost is
+// fine for personal use (~7MB/song; a 15GB residential allowance ≈ 2000+
+// songs). Set PROXY_AUDIO=0 to opt back to cheaper direct CDN bytes.
+const PROXY_AUDIO = process.env.PROXY_AUDIO !== "0";
 
 const app = express();
 app.use(express.json({ limit: "256kb" }));
@@ -51,7 +54,7 @@ app.use((req, res, next) => {
 });
 
 const PROVIDER_ID = "torrentio-music-res";
-const VERSION = "2.1.0";
+const VERSION = "2.2.0";
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
