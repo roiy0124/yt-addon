@@ -1,65 +1,62 @@
-# YouTube Music (IL) — Residential addon
+# Setup notes (educational reference)
 
-A **separate** addon from the free `torrentio-music-addon`. Same loader.to
-flow, but loader.to's per-IP flag is beaten by routing its calls through a
-**residential proxy** (the only thing proven this session to clear it).
-The free WARP addon is **unchanged** and keeps running independently.
+> Reference notes for self-hosting this learning project. See
+> [`DISCLAIMER.md`](DISCLAIMER.md) — this is published for educational and
+> research purposes only.
 
-Cost model (verified May 2026): personal music ≈ a few MB/song.
-- Default (`PROXY_AUDIO` unset): only the tiny loader.to JSON API calls go
-  through the proxy → **pennies/month**, bulk audio served direct.
-- `PROXY_AUDIO=1`: all loader/CDN traffic via proxy (~$1–1.5/mo) — use
-  only if the CDN byte-fetch is independently flagged.
+This addon optionally routes its outbound requests through a standard HTTP
+proxy. Configuring a proxy can improve connection **reliability and regional
+consistency** when reaching third-party services from a datacenter host, in the
+same way a proxy is commonly used for any outbound HTTP integration. The proxy
+is entirely optional — with no proxy configured, the addon runs with direct
+egress.
 
-## Step 0 — Free validation FIRST (spend $0 until proven)
+Cost model (personal use): a few MB per request.
+- Default (`PROXY_AUDIO` unset): only the small JSON API calls use the proxy →
+  **pennies/month**; bulk byte transfers go direct.
+- `PROXY_AUDIO=1`: all traffic uses the proxy (~$1–1.5/mo).
 
-The whole approach is gated on one question: does a residential IP actually
-beat loader.to from a server? **Evomi has a free, no-credit-card trial** —
-use it to prove it before paying anything.
+## Step 0 — Try a free trial first (spend $0 to evaluate)
 
-1. Sign up at evomi.com → Residential product → start the **free trial**
-   (no card). Copy the proxy endpoint + user/pass, e.g.
+Most residential-proxy providers offer a free, no-credit-card trial. Use one to
+evaluate whether a proxy improves reliability for your setup before paying.
+
+1. Sign up at a provider (e.g. evomi.com) → Residential product → start the
+   **free trial** (no card). Copy the proxy endpoint + user/pass, e.g.
    `http://USER:PASS@rp.evomi.com:1000`.
 
-## Step 1 — Create the new repo + Render service (separate from the free one)
+## Step 1 — Deploy to Render
 
-2. New **GitHub repo** (e.g. `torrent-io-meyousic-addon-residential`),
-   push this folder to it.
+2. New **GitHub repo**, push this folder to it.
 3. New **Render** Web Service from that repo (Node, free tier ok). Build:
    `npm install`; Start: `npm start`.
 4. Render → Environment → add secret:
-   - `RESIDENTIAL_PROXY_URL` = the Evomi URL from step 0
-   - (optional) `PROXY_AUDIO` = `1` only if testing shows the audio
-     byte-fetch is also flagged
-5. After it deploys, note the new `https://<service>.onrender.com` URL and
-   put it into `.github/workflows/keepalive.yml` (replace the placeholder).
+   - `RESIDENTIAL_PROXY_URL` = the proxy URL from step 0 (optional)
+   - (optional) `PROXY_AUDIO` = `1`
+5. After it deploys, note the `https://<service>.onrender.com` URL and put it
+   into `.github/workflows/keepalive.yml` (replace the placeholder).
 
-## Step 2 — Verify (the decisive test)
+## Step 2 — Verify
 
-- `GET /healthz` → should show `"egress":"residential(api-only)"`.
-- Hit `/audio/<id>` for several different songs in a row (the exact test
-  that 502'd on the free addon). If residential works, these succeed where
-  WARP was intermittent. If the **free trial** can't clear it, **no paid
-  residential will** (same pool classes) — stop, don't spend; keep the free
-  addon only. That trial is the go/no-go.
+- `GET /healthz` → reports the current egress mode.
+- Make a few requests in a row to confirm the service is responding. If a proxy
+  doesn't improve reliability for you, there's no need to pay for one — the
+  free, direct-egress mode is the baseline.
 
 ## Step 3 — Use it in Meyousic
 
 Install in the app via Add-addon → `https://<service>.onrender.com/manifest.json`.
-Its provider id is `torrentio-music-res` (distinct), so it coexists with the
-free addon — keep both installed; this one is the reliable mainstream path
-once the proxy is set.
+The provider id is distinct, so it can coexist with other installed addons.
 
-## If the trial succeeds
+## Cost, if you keep a proxy
 
-Either stay on Evomi PAYG (~$0.99/GB, no expiry, ~$1/mo worst case) or buy
-one IPRoyal 1 GB block (~$7, never expires — likely lasts a year+ at
-API-only volume). Same `RESIDENTIAL_PROXY_URL` format, just swap the value.
+Either pay-as-you-go (~$0.99/GB, no expiry, ~$1/mo worst case) or buy a small
+1 GB block (~$7, never expires — likely lasts a long time at API-only volume).
+Same `RESIDENTIAL_PROXY_URL` format, just swap the value.
 
-## Free angle (honest)
+## Notes (honest)
 
-There is **no** free residential egress left that isn't already disproven
-(WARP/Tor/Invidious/Piped/multi-Render/free-VPS). The free addon stays
-best-effort; this one is the small-paid reliable option. If a genuinely
-free residential method appears later, it drops in via the same
-`RESIDENTIAL_PROXY_URL` seam — nothing else changes.
+A proxy is optional and only affects connection reliability/region. With no
+proxy configured the addon still runs, direct egress, as a best-effort
+reference implementation. If a different proxy method suits you later, it drops
+in via the same `RESIDENTIAL_PROXY_URL` setting — nothing else changes.

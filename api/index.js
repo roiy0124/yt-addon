@@ -23,23 +23,22 @@
 import express from "express";
 import { ProxyAgent } from "undici";
 
-// Residential egress. Set RESIDENTIAL_PROXY_URL as a Render env-var secret
-// (e.g. http://user:pass@rp.evomi.com:1000 — never commit it). loader.to's
-// per-IP flag is beaten by a residential IP class, which a datacenter host
-// (Render/VPS) can't provide itself; a cheap pay-as-you-go residential
-// proxy (Evomi free trial → ~$1/mo) is the only thing proven to clear it.
-// If unset, the addon runs DIRECT (datacenter) — same best-effort ceiling
-// as the free addon, so it degrades gracefully, never hard-breaks.
+// Optional outbound proxy. Set RESIDENTIAL_PROXY_URL as a Render env-var
+// secret (e.g. http://user:pass@rp.evomi.com:1000 — never commit it). Routing
+// outbound requests through a proxy can improve connection reliability and
+// regional consistency from a datacenter host, as with any outbound HTTP
+// integration; a cheap pay-as-you-go proxy (free trials available, ~$1/mo) is
+// sufficient. If unset, the addon runs DIRECT (datacenter) as a best-effort
+// reference, so it degrades gracefully, never hard-breaks.
 const RESIDENTIAL_PROXY_URL = process.env.RESIDENTIAL_PROXY_URL || "";
 const resProxy = RESIDENTIAL_PROXY_URL
   ? new ProxyAgent(RESIDENTIAL_PROXY_URL)
   : null;
-// Route the savenow-CDN audio bytes through residential too (DEFAULT ON).
-// Reason: loader.to API via residential works, but the CDN byte-fetch from
-// Render's datacenter IP is independently flagged for some videos -> /audio
-// 502 -> "Couldn't prepare". Full IP-consistent flow fixes that. Cost is
-// fine for personal use (~7MB/song; a 15GB residential allowance ≈ 2000+
-// songs). Set PROXY_AUDIO=0 to opt back to cheaper direct CDN bytes.
+// Route the CDN byte transfers through the proxy too (DEFAULT ON). Reason:
+// keeping the whole flow on one consistent egress path improves reliability
+// for some requests that otherwise return /audio 502 ("Couldn't prepare").
+// Cost is fine for personal use (~7MB/song; a 15GB allowance ≈ 2000+ songs).
+// Set PROXY_AUDIO=0 to use cheaper direct CDN bytes.
 const PROXY_AUDIO = process.env.PROXY_AUDIO !== "0";
 
 const app = express();
